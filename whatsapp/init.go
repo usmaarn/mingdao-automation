@@ -1,21 +1,28 @@
-package main
+package whatsapp
 
 import (
 	"context"
 	"fmt"
 	"os"
 
-	qrterminal "github.com/mdp/qrterminal/v4"
+	"github.com/mdp/qrterminal/v4"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
-func LaunchWhatsAppClient() *whatsmeow.Client {
-	dbLog := waLog.Stdout("DATABASE", "DEBUG", true)
-	ctx := context.Background()
+func eventHandler(e any) {
+	switch v := e.(type) {
+	case *events.Message:
+		fmt.Println("Received message", v.Message.GetConversation())
+	}
+}
 
-	container, err := sqlstore.New(ctx, "sqlite2", "file:store.db?_foreign_keys=on", dbLog)
+func Init(ctx context.Context) *whatsmeow.Client {
+	dbLog := waLog.Stdout("DATABASE", "DEBUG", true)
+
+	container, err := sqlstore.New(ctx, "sqlite3", "file:store.db?_foreign_keys=on", dbLog)
 	if err != nil {
 		panic(err)
 	}

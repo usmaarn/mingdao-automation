@@ -2,36 +2,50 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"go.mau.fi/whatsmeow/types/events"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/usmaarn/mingdao/app"
 )
 
-func eventHandler(e any) {
-	switch v := e.(type) {
-	case *events.Message:
-		fmt.Println("Received message", v.Message.GetConversation())
-	}
-}
-
 func main() {
-	ctx, cancel := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	whatsAppClient := LaunchWhatsAppClient()
 
-	// Listen to Ctrl+C (you can also do something else that prevents the program from exiting)
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
+	app := app.New(ctx)
+	app.OpenFormModal()
 
-	whatsAppClient.Disconnect()
+	server := &http.Server{
+		Handler:      app,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 20 * time.Second,
+		Addr:         ":9922",
+	}
+
+	go func() {
+		log.Println("Server running on", server.Addr)
+		if err := server.ListenAndServe(); err != nil {
+			if !errors.Is(err, http.ErrServerClosed) {
+				log.Println("Server error: ", err)
+			}
+		}
+	}()
+
+	<-ctx.Done()
+	log.Panicln("shutting down ....")
+	err := server.Shutdown(ctx)
+	if err != nil {
+		err := server.Close()
+		if err != nil {
+			os.Exit(1)
+		}
+	}
+
+	log.Println("Server shutdoen completed.")
 }
