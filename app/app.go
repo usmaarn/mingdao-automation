@@ -93,6 +93,13 @@ func (app *App) AddRecord(record Record) {
 
 	page.MustElementR(".saveAndContinueBtn", "Save & New").MustClick()
 
+	if page.MustHas(".ant-message-notice") {
+		page.MustElements("textarea.customFormTextarea.escclose").
+			First().
+			MustInput(record.Summary)
+		page.MustElementR(".saveAndContinueBtn", "Save & New").MustClick()
+	}
+
 	log.Println("completed")
 }
 

@@ -14,6 +14,7 @@ type RequestData struct {
 	Solution  string `json:"solution"`
 	StartDate string `json:"startDate"`
 	EndDate   string `json:"endDate"`
+	Type      string `json:"type"`
 }
 
 func (d RequestData) Validate() error {
@@ -28,30 +29,27 @@ func (d RequestData) Validate() error {
 			validation.Required,
 			validation.Date("2006-01-02 15:04"),
 		),
+		validation.Field(
+			&d.Type,
+			validation.Required,
+			validation.In(
+				"issue locating",
+				"documentantion",
+				"documentation",
+				"phone call",
+				"meeting",
+			)),
 	)
 }
 
 type RequestPayload struct {
 	MerchantName string        `json:"merchantName"`
-	Type         string        `json:"type"`
 	Data         []RequestData `json:"data"`
 }
 
 func (r RequestPayload) Validate() error {
 	return validation.ValidateStruct(&r,
-		validation.Field(
-			&r.MerchantName,
-			validation.Required,
-		),
-		validation.Field(
-			&r.Type,
-			validation.Required,
-			validation.In(
-				"issue locating",
-				"documentantion",
-				"phone call",
-				"meeting",
-			)),
+		validation.Field(&r.MerchantName),
 		validation.Field(
 			&r.Data,
 			validation.Required,
@@ -74,7 +72,6 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var req RequestPayload
-	req.Type = strings.ToLower(req.Type)
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -95,14 +92,19 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer app.mutex.Unlock()
 
 		for _, data := range req.Data {
-			app.AddRecord(Record{
+			if strings.ToLower(data.Type) == "documentation" {
+				data.Type = "documentantion"
+			}
+			record := Record{
 				Summary:      data.Summary,
 				MerchantName: req.MerchantName,
 				StartDate:    data.StartDate,
 				EndDate:      data.EndDate,
-				Type:         req.Type,
+				Type:         strings.ToLower(data.Type),
 				Solution:     data.Solution,
-			})
+			}
+
+			app.AddRecord(record)
 		}
 	}(req)
 

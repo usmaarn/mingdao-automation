@@ -38,7 +38,7 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	log.Panicln("shutting down ....")
+	log.Println("shutting down ....")
 	err := server.Shutdown(ctx)
 	if err != nil {
 		err := server.Close()
